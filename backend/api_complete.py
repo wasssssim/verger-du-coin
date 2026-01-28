@@ -141,13 +141,21 @@ class SaleCreateSerializer(serializers.ModelSerializer):
         sale.save()
         
         # Points fidélité
-        if sale.customer and sale.is_paid:
+        if sale.customer:
             try:
-                sale.customer.loyalty_card.add_points(float(sale.total))
-                sale.customer.last_purchase_date = sale.created_at
+                # get_or_create assure qu'on ne plante pas si le client n'a pas de carte
+                loyalty_card, _ = LoyaltyCard.objects.get_or_create(
+                    customer=sale.customer,
+                    defaults={'card_number': f"VDC{sale.customer.id}"}
+                )
+                # On utilise ta méthode add_points avec le total Decimal
+                loyalty_card.add_points(sale.total)
+                
+                # Mise à jour date client
+                sale.customer.last_purchase_date = timezone.now()
                 sale.customer.save()
-            except:
-                pass
+            except Exception as e:
+                print(f"Erreur fidélité: {e}")
         
         return sale
 

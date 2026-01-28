@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import { ShoppingCart, LogOut, CreditCard, Banknote, Trash2, X } from 'lucide-react'
 import { api } from './api/client'
 
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [token, setToken] = useState(null)
+  const [token, setToken,] = useState(null)
   const [products, setProducts] = useState([])
-  const [cart, setCart] = useState([])
+  const [cart, setCart,] = useState([])
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [categories, setCategories] = useState([])
   const [customerCard, setCustomerCard] = useState('')
   const [customer, setCustomer] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [lastSale, setLastSale] = useState(null)
 
   // Login
   const handleLogin = async (e) => {
@@ -96,47 +98,48 @@ function App() {
   }
 
   // Paiement
-  const handlePayment = async (method) => {
-    if (cart.length === 0) {
-      alert('Le panier est vide')
-      return
-    }
-
-    const total = cart.reduce((sum, item) => 
-      sum + (parseFloat(item.product.base_price) * item.quantity), 0
-    )
-
-    if (!confirm(`Confirmer le paiement de ${total.toFixed(2)}€ par ${method === 'CASH' ? 'ESPÈCES' : 'CARTE'} ?`)) {
-      return
-    }
-
-    setLoading(true)
-    try {
-      await api.sales.create({
-        channel: 'KIOSK',
-        location: 1,
-        customer: customer?.id || null,
-        payment_method: method,
-        lines: cart.map(item => ({
-          product: item.product.id,
-          quantity: item.quantity,
-          unit_price: parseFloat(item.product.base_price),
-          vat_rate: parseFloat(item.product.vat_rate)
-        }))
-      }, token)
-
-      alert(`✅ Paiement de ${total.toFixed(2)}€ validé !`)
-      setCart([])
-      setCustomer(null)
-      setCustomerCard('')
-    } catch (error) {
-      console.error('Erreur paiement:', error)
-      alert('Erreur lors du paiement: ' + (error.response?.data?.detail || 'Erreur inconnue'))
-    } finally {
-      setLoading(false)
-    }
+const handlePayment = async (method) => {
+  if (cart.length === 0) {
+    alert('Le panier est vide')
+    return
   }
 
+  // 1. On calcule le total actuel AVANT de vider le panier
+  const finalTotal = total; 
+
+  if (!confirm(`Confirmer le paiement de ${finalTotal.toFixed(2)}€ par ${method === 'CASH' ? 'ESPÈCES' : 'CARTE'} ?`)) {
+    return
+  }
+
+  setLoading(true)
+  try {
+    const saleData = await api.sales.create({
+      channel: 'KIOSK',
+      location: 1,
+      customer: customer?.customer?.id || null,
+      payment_method: method,
+      lines: cart.map(item => ({
+        product: item.product.id,
+        quantity: item.quantity,
+        unit_price: parseFloat(item.product.base_price),
+        vat_rate: parseFloat(item.product.vat_rate)
+      }))
+    }, token)
+
+    // 2. On injecte le total calculé dans l'objet lastSale 
+    // pour que le modal ne dépende plus du panier vide
+    setLastSale({ ...saleData, total: finalTotal })
+    
+    setCart([])
+    setCustomer(null)
+    setCustomerCard('')
+  } catch (error) {
+    console.error('Erreur paiement:', error)
+    alert('Erreur lors du paiement: ' + (error.response?.data?.detail || 'Erreur inconnue'))
+  } finally {
+    setLoading(false)
+  }
+}
   // Filtrer produits
   const filteredProducts = selectedCategory
     ? products.filter(p => p.category?.id === selectedCategory)
@@ -414,7 +417,87 @@ function App() {
             </button>
           </div>
         </div>
+              {/* Modal Ticket de Caisse */}
+      {lastSale && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 no-print-bg">
+          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm relative">
+            
+            {/* Contenu du Ticket */}
+            <div id="receipt-print" className="font-mono text-sm text-black p-2">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold uppercase">Le Verger du Coin</h2>
+                <p>123 Rue du Marché, Marseille</p>
+                <p>Tél: 04 00 00 00 00</p>
+                <div className="border-b border-dashed border-black my-2"></div>
+                <p className="text-xs">Vente: #{lastSale.sale_number || lastSale.id}</p>
+                <p className="text-xs">{new Date().toLocaleString()}</p>
+              </div>
+
+              <div className="space-y-1">
+                {lastSale.lines.map((line, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span className="flex-1">{line.product_name || 'Produit'}</span>
+                    <span className="mx-2">x{parseFloat(line.quantity)}</span>
+                    <span>{(line.quantity * line.unit_price).toFixed(2)}€</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-b border-dashed border-black my-2"></div>
+              
+              <div className="flex justify-between font-bold text-lg">
+                <span>TOTAL</span>
+                <span>{parseFloat(lastSale.total || total).toFixed(2)}€</span>
+              </div>
+              
+              <div className="text-xs mt-2">
+                <p>Mode: {lastSale.payment_method === 'CASH' ? 'ESPÈCES' : 'CARTE'}</p>
+                {customer && <p>Client: {customer.first_name} {customer.last_name}</p>}
+              </div>
+
+              <div className="text-center mt-6 italic text-xs">
+                Merci de votre visite ! 🍎
+              </div>
+            </div>
+
+            {/* Boutons d'action (cachés à l'impression) */}
+            <div className="mt-6 flex gap-3 no-print">
+              <button 
+                onClick={() => window.print()}
+                className="flex-1 bg-gray-800 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-900"
+              >
+                Imprimer
+              </button>
+              <button 
+                onClick={() => setLastSale(null)}
+                className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Style spécifique pour l'impression */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          #receipt-print, #receipt-print * { 
+            visibility: visible; 
+          }
+          #receipt-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .no-print-bg { background: none !important; }
+        }
+      `}</style>
       </div>
+
     </div>
   )
 }
