@@ -1,172 +1,422 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react'
+import { ShoppingCart, LogOut, CreditCard, Banknote, Trash2, X } from 'lucide-react'
+import { api } from './api/client'
 
-const API_URL = 'http://127.0.0.1:8000/api';
-const api = axios.create({ baseURL: API_URL });
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [token, setToken] = useState(null)
+  const [products, setProducts] = useState([])
+  const [cart, setCart] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [customerCard, setCustomerCard] = useState('')
+  const [customer, setCustomer] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-export default function App() {
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [customer, setCustomer] = useState(null);
-  const [cardNumber, setCardNumber] = useState('');
-  const [lastSale, setLastSale] = useState(null); // Pour stocker le ticket
+  // Login
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    const username = e.target.username.value
+    const password = e.target.password.value
 
-  useEffect(() => {
-    api.get('/products/')
-      .then(res => setProducts(res.data.results || res.data))
-      .catch(() => alert('Serveur non disponible'));
-  }, []);
-
-  const addToCart = (product) => {
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
-      setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
-    } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
-    }
-  };
-
-  const checkout = async (paymentMethod, totalPrice) => {
-    if (cart.length === 0) return alert('Panier vide');
     try {
-      const res = await api.post('/sales/', {
-        channel: 'KIOSK', 
-        location: 1, 
-        customer: customer?.id,
-        payment_method: paymentMethod,
-        lines: cart.map(item => ({ 
-          product: item.id, 
-          quantity: item.quantity, 
-          unit_price: item.base_price, 
-          vat_rate: item.vat_rate 
-        }))
-      });
-      
-      // On stocke la réponse pour le ticket
-      setLastSale(res.data);
-      
-      // Reset du panier
-      setCart([]); setCustomer(null); setCardNumber('');
-    } catch (err) {
-      alert('Erreur lors de la vente');
+      const data = await api.auth.login(username, password)
+      setToken(data.access)
+      setIsLoggedIn(true)
+      loadData()
+    } catch (error) {
+      alert('Erreur de connexion: ' + (error.response?.data?.detail || 'Vérifiez vos identifiants'))
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const total = cart.reduce((sum, item) => sum + (item.base_price * item.quantity), 0);
+  // Charger les données
+  const loadData = async () => {
+    try {
+      const [productsData, categoriesData] = await Promise.all([
+        api.products.getAll(),
+        api.categories.getAll()
+      ])
+      setProducts(Array.isArray(productsData) ? productsData : [])
+      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+    } catch (error) {
+      console.error('Erreur chargement données:', error)
+      alert('Erreur de chargement des données')
+    }
+  }
+
+  // Ajouter au panier
+  const addToCart = (product) => {
+    const existingItem = cart.find(item => item.product.id === product.id)
+    
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.product.id === product.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ))
+    } else {
+      setCart([...cart, { product, quantity: 1 }])
+    }
+  }
+
+  // Modifier quantité
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity <= 0) {
+      setCart(cart.filter(item => item.product.id !== productId))
+    } else {
+      setCart(cart.map(item =>
+        item.product.id === productId
+          ? { ...item, quantity: newQuantity }
+          : item
+      ))
+    }
+  }
+
+  // Scanner carte fidélité
+  const scanCard = async () => {
+    if (!customerCard) {
+      alert('Veuillez entrer un numéro de carte')
+      return
+    }
+    
+    setLoading(true)
+    try {
+      const data = await api.customers.searchByCard(customerCard, token)
+      setCustomer(data)
+      alert(`Client trouvé: ${data.first_name} ${data.last_name}`)
+    } catch (error) {
+      alert('Carte non trouvée')
+      setCustomer(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Paiement
+  const handlePayment = async (method) => {
+    if (cart.length === 0) {
+      alert('Le panier est vide')
+      return
+    }
+
+    const total = cart.reduce((sum, item) => 
+      sum + (parseFloat(item.product.base_price) * item.quantity), 0
+    )
+
+    if (!confirm(`Confirmer le paiement de ${total.toFixed(2)}€ par ${method === 'CASH' ? 'ESPÈCES' : 'CARTE'} ?`)) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      await api.sales.create({
+        channel: 'KIOSK',
+        location: 1,
+        customer: customer?.id || null,
+        payment_method: method,
+        lines: cart.map(item => ({
+          product: item.product.id,
+          quantity: item.quantity,
+          unit_price: parseFloat(item.product.base_price),
+          vat_rate: parseFloat(item.product.vat_rate)
+        }))
+      }, token)
+
+      alert(`✅ Paiement de ${total.toFixed(2)}€ validé !`)
+      setCart([])
+      setCustomer(null)
+      setCustomerCard('')
+    } catch (error) {
+      console.error('Erreur paiement:', error)
+      alert('Erreur lors du paiement: ' + (error.response?.data?.detail || 'Erreur inconnue'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filtrer produits
+  const filteredProducts = selectedCategory
+    ? products.filter(p => p.category?.id === selectedCategory)
+    : products
+
+  const total = cart.reduce((sum, item) => 
+    sum + (parseFloat(item.product.base_price) * item.quantity), 0
+  )
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-500 to-green-700">
+        <div className="bg-white p-8 rounded-2xl shadow-2xl w-96">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">🍎 Verger POS</h1>
+            <p className="text-gray-600">Point de vente</p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nom d'utilisateur
+              </label>
+              <input
+                type="text"
+                name="username"
+                defaultValue="admin"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mot de passe
+              </label>
+              <input
+                type="password"
+                name="password"
+                defaultValue="admin123"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                required
+              />
+            </div>
+            
+            <button type="submit" className="btn-pos w-full" disabled={loading}>
+              {loading ? 'Connexion...' : 'Se connecter'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: 'sans-serif' }}>
-      {/* HEADER */}
-      <div style={{ background: '#16a34a', color: 'white', padding: '1rem' }}>
-        <h1 style={{ margin: 0, textAlign: 'center' }}>🍎 Le Verger du Coin - POS</h1>
+    <div className="h-screen flex flex-col bg-gray-100">
+      {/* Header */}
+      <div className="bg-green-600 text-white p-4 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🍎</span>
+          <div>
+            <h1 className="text-xl font-bold">Verger du Coin</h1>
+            <p className="text-sm text-green-100">Point de vente</p>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => {
+            if (confirm('Se déconnecter ?')) {
+              setIsLoggedIn(false)
+              setCart([])
+              setCustomer(null)
+            }
+          }}
+          className="flex items-center gap-2 bg-green-700 hover:bg-green-800 px-4 py-2 rounded-lg transition-colors"
+        >
+          <LogOut className="h-5 w-5" />
+          Déconnexion
+        </button>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
-        
-        {/* GRILLE PRODUITS */}
-        <div style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ marginTop: 0 }}>Produits</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
-            {products.map(p => (
-              <button key={p.id} onClick={() => addToCart(p)} style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', background: 'white', transition: 'transform 0.1s' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{p.name}</div>
-                <div style={{ color: '#16a34a', fontSize: '1.2rem', fontWeight: 'bold' }}>{p.base_price}€</div>
-                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>par {p.unit}</div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Produits */}
+        <div className="flex-1 flex flex-col p-4 overflow-hidden">
+          {/* Catégories */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                !selectedCategory
+                  ? 'bg-green-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Tous ({products.length})
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === cat.id
+                    ? 'bg-green-500 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {cat.name}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* PANIER */}
-        <div style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ marginTop: 0 }}>Panier</h2>
-          
-          <input placeholder="Scanner carte fidélité..." value={cardNumber} onChange={e => setCardNumber(e.target.value)} style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', border: '1px solid #d1d5db', borderRadius: '6px', boxSizing: 'border-box' }} />
-
-          <div style={{ flexGrow: 1, marginBottom: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
-            {cart.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: '#f9fafb', marginBottom: '0.5rem', borderRadius: '6px' }}>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{item.quantity} × {item.base_price}€</div>
+          {/* Grille produits */}
+          <div className="flex-1 overflow-auto">
+            {filteredProducts.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <p className="text-gray-500 text-xl mb-2">Aucun produit disponible</p>
+                  <p className="text-gray-400">Ajoutez des produits dans l'admin Django</p>
                 </div>
-                <div style={{ fontWeight: 'bold' }}>{(item.quantity * item.base_price).toFixed(2)}€</div>
               </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: '2px dashed #e5e7eb', paddingTop: '1rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', fontWeight: 'bold' }}>
-              <span>TOTAL</span>
-              <span style={{ color: '#16a34a' }}>{total.toFixed(2)}€</span>
-            </div>
-          </div>
-
-          <button onClick={() => checkout('CASH', total.toFixed(2))} style={{ width: '100%', padding: '1rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.75rem' }}>
-            💵 ESPÈCES
-          </button>
-          
-          <button onClick={() => checkout('CARD', total.toFixed(2))} style={{ width: '100%', padding: '1rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-            💳 CARTE
-          </button>
-        </div>
-      </div>
-
-      {/* MODAL TICKET DE CAISSE */}
-      {lastSale && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', width: '350px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
-            
-            {/* Design du Ticket */}
-            <div id="receipt-content" style={{ textAlign: 'center', fontFamily: 'monospace', color: '#000' }}>
-              <h3 style={{ margin: '0 0 0.5rem 0' }}>LE VERGER DU COIN</h3>
-              <p style={{ fontSize: '0.8rem', margin: 0 }}>123 Rue du Marché, 13000 Marseille</p>
-              <p style={{ fontSize: '0.8rem', margin: '0 0 1rem 0' }}>{new Date().toLocaleString()}</p>
-              
-              <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '0.5rem 0', textAlign: 'left', fontSize: '0.9rem' }}>
-                {lastSale.lines.map((line, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{line.product_name} x{parseFloat(line.quantity)}</span>
-                    <span>{(parseFloat(line.quantity) * parseFloat(line.unit_price)).toFixed(2)}€</span>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredProducts.map(product => (
+                  <div
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                    className="product-card"
+                  >
+                    <div className="text-5xl mb-2 text-center">🍎</div>
+                    <h3 className="font-bold text-lg mb-1 truncate">{product.name}</h3>
+                    <p className="text-2xl font-bold text-green-600">
+                      {parseFloat(product.base_price).toFixed(2)}€
+                    </p>
+                    <p className="text-sm text-gray-500">/{product.unit}</p>
                   </div>
                 ))}
               </div>
-
-              <div style={{ textAlign: 'right', marginTop: '1rem', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                TOTAL: {lastSale.lines.reduce((s, l) => s + (parseFloat(l.quantity) * parseFloat(l.unit_price)), 0).toFixed(2)}€
-              </div>
-              
-              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'left' }}>
-                Mode de paiement: {lastSale.payment_method === 'CASH' ? 'ESPECES' : 'CARTE'}<br/>
-                Canal: {lastSale.channel}
-              </p>
-              
-              <div style={{ marginTop: '1.5rem', fontSize: '0.8rem' }}>
-                Merci de votre visite ! 🍎
-              </div>
-            </div>
-
-            {/* BOUTONS MODAL */}
-            <div style={{ marginTop: '2rem', display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => window.print()} style={{ flex: 1, padding: '0.75rem', background: '#4b5563', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                Imprimer
-              </button>
-              <button onClick={() => setLastSale(null)} style={{ flex: 1, padding: '0.75rem', background: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                Nouvelle vente
-              </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* CSS pour l'impression (cache tout sauf le ticket) */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #receipt-content, #receipt-content * { visibility: visible; }
-          #receipt-content { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-      `}</style>
+        {/* Panier */}
+        <div className="w-96 bg-white shadow-xl flex flex-col">
+          <div className="p-4 bg-gray-50 border-b">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6" />
+              Panier ({cart.length})
+            </h2>
+          </div>
+
+          {/* Client */}
+          <div className="p-4 border-b">
+            <label className="block text-sm font-medium mb-2">
+              Carte fidélité
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customerCard}
+                onChange={(e) => setCustomerCard(e.target.value)}
+                placeholder="VDC123456"
+                className="flex-1 px-3 py-2 border rounded-lg"
+              />
+              <button
+                onClick={scanCard}
+                disabled={loading}
+                className="btn-pos-secondary px-4"
+              >
+                Scanner
+              </button>
+            </div>
+            {customer && (
+              <div className="mt-2 p-2 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-green-800">
+                      {customer.first_name} {customer.last_name}
+                    </p>
+                    <p className="text-sm text-green-600">
+                      Points: {customer.loyalty_card?.points_balance || 0}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCustomer(null)
+                      setCustomerCard('')
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Items */}
+          <div className="flex-1 overflow-auto p-4 space-y-2">
+            {cart.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <p>Panier vide</p>
+              </div>
+            ) : (
+              cart.map(item => (
+                <div key={item.product.id} className="cart-item">
+                  <div className="flex-1">
+                    <p className="font-medium">{item.product.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {parseFloat(item.product.base_price).toFixed(2)}€ x {item.quantity} = {(parseFloat(item.product.base_price) * item.quantity).toFixed(2)}€
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      className="w-8 h-8 bg-gray-200 rounded-lg font-bold hover:bg-gray-300"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-bold">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      className="w-8 h-8 bg-gray-200 rounded-lg font-bold hover:bg-gray-300"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => updateQuantity(item.product.id, 0)}
+                      className="ml-2 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Total et Paiement */}
+          <div className="p-4 border-t bg-gray-50">
+            <div className="text-3xl font-bold text-center mb-4 text-green-600">
+              Total: {total.toFixed(2)}€
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                onClick={() => handlePayment('CASH')}
+                disabled={cart.length === 0 || loading}
+                className="btn-pos flex items-center justify-center gap-2"
+              >
+                <Banknote className="h-6 w-6" />
+                Espèces
+              </button>
+              <button
+                onClick={() => handlePayment('CARD')}
+                disabled={cart.length === 0 || loading}
+                className="btn-pos flex items-center justify-center gap-2"
+              >
+                <CreditCard className="h-6 w-6" />
+                Carte
+              </button>
+            </div>
+            
+            <button
+              onClick={() => {
+                if (confirm('Vider le panier ?')) {
+                  setCart([])
+                  setCustomer(null)
+                  setCustomerCard('')
+                }
+              }}
+              className="btn-pos-danger w-full flex items-center justify-center gap-2"
+            >
+              <Trash2 className="h-5 w-5" />
+              Vider le panier
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
+
+export default App

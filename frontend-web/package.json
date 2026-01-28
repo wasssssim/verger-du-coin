@@ -1,7 +1,7 @@
 {
-  "name": "verger-pos",
+  "name": "verger-web",
   "version": "1.0.0",
-  "description": "POS Application pour Le Verger du Coin",
+  "description": "Site web Click & Collect pour Le Verger du Coin",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,9 +10,11 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
     "axios": "^1.6.2",
-    "zustand": "^4.4.7",
-    "lucide-react": "^0.263.1"
+    "date-fns": "^3.0.0",
+    "lucide-react": "^0.263.1",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
