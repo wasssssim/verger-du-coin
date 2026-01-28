@@ -6,6 +6,7 @@ from sfs_products.models import Product
 from sfs_customers.models import Customer
 from sfs_inventory.models import StockLocation
 from datetime import datetime
+from decimal import Decimal 
 
 class Sale(models.Model):
     CHANNELS = [('KIOSK', 'Kiosque'), ('MARKET', 'Marché'), ('WEB', 'Web'), ('SUBSCRIPTION', 'Abonnement')]
@@ -59,7 +60,8 @@ class SaleLine(models.Model):
     
     @property
     def line_total(self):
-        return self.quantity * self.unit_price * (1 - self.discount_percent / 100)
+        percentage = self.discount_percent / Decimal('100.00')
+        return self.quantity * self.unit_price * (Decimal('1.00') - percentage)
     
     @property
     def vat_amount(self):
