@@ -12,6 +12,10 @@ from sfs_products.models import Product, ProductCategory
 from sfs_inventory.models import Stock, StockLocation, StockMovement
 from sfs_customers.models import Customer, LoyaltyCard
 from sfs_sales.models import Sale, SaleLine, DailyReport
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()  # 👈 Ajoute cette ligne
 
 # === PRODUCTS SERIALIZERS ===
 class ProductCategorySerializer(serializers.ModelSerializer):
@@ -210,6 +214,59 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [AllowAny()]  # 👈 Allo)
     
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def register(self, request):
+        """Créer un User + Customer en même temps"""
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        phone = request.data.get('phone', '')
+        
+        # Validation
+        if not username or not email or not password:
+            return Response(
+                {'error': 'username, email et password sont requis'}, 
+                status=400
+            )
+        
+        # Vérifier si le username existe déjà
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Ce nom d\'utilisateur existe déjà'}, 
+                status=400
+            )
+        
+        try:
+            # Créer le User
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # Créer le Customer associé
+            customer = Customer.objects.create(
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone
+            )
+            
+            return Response({
+                'message': 'Compte créé avec succès',
+                'user_id': user.id,
+                'customer_id': customer.id
+            }, status=201)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=400
+            )
     @action(detail=False, methods=['get'])
     def me(self, request):
         """Retourne les informations de l'utilisateur connecté"""

@@ -30,18 +30,34 @@ export default function NotificationsPage() {
       const savedNotifs = JSON.parse(localStorage.getItem('notifications') || '{}')
       
       // Créer les notifications à partir des commandes
-      const notifs = orders.map(order => ({
-        id: `order-${order.id}`,
-        type: 'order',
-        orderId: order.id,
-        title: `Nouvelle commande #${order.id}`,
-        message: `${order.customer_name || 'Client'} - ${parseFloat(order.total || 0).toFixed(2)}€`,
-        details: `${order.lines?.length || 0} article(s)`,
-        time: order.created_at,
-        read: savedNotifs[`order-${order.id}`]?.read || false,
-        icon: ShoppingBag,
-        color: 'blue'
-      }))
+const notifs = orders.map(order => {
+  // Extraire le nom du client
+  let customerName = 'Client'
+  if (order.customer_name) {
+    customerName = order.customer_name
+  } else if (order.customer) {
+    // Si c'est un objet customer
+    if (typeof order.customer === 'object') {
+      customerName = order.customer.full_name || order.customer.first_name || 'Client'
+    }
+  }
+  
+  // Compter les articles
+  const itemCount = order.lines?.reduce((sum, line) => sum + parseFloat(line.quantity || 0), 0) || 0
+  
+  return {
+    id: `order-${order.id}`,
+    type: 'order',
+    orderId: order.id,
+    title: `Commande #${order.id}`,
+    message: `${customerName} - ${parseFloat(order.total || 0).toFixed(2)}€`,
+    details: `${itemCount} article(s) - ${order.payment_method === 'CARD' ? 'Carte' : 'Espèces'} - ${order.channel}`,
+    time: order.created_at,
+    read: savedNotifs[`order-${order.id}`]?.read || false,
+    icon: ShoppingBag,
+    color: 'blue'
+  }
+})
       
       // Trier par date décroissante
       notifs.sort((a, b) => new Date(b.time) - new Date(a.time))

@@ -41,7 +41,7 @@ export const api = {
     login: (username, password) =>
       apiClient.post('/auth/token/', { username, password }),
     register: (data) =>
-      apiClient.post('/customers/', data),
+      apiClient.post('/customers/register/', data),
   },
   
   // Produits

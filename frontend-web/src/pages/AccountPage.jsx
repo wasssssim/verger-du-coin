@@ -40,7 +40,6 @@ const handleLogin = async (e) => {
     // Appel API d'authentification
     const response = await api.auth.login(loginData.username, loginData.password)
     
-    // 👇 IMPORTANT : Stocker d'abord le token
     const token = response.data.access
     
     // Créer un objet user temporaire
@@ -97,6 +96,7 @@ const handleLogin = async (e) => {
     setLoading(true)
 
     try {
+      console.log('Données envoyées:', registerData) 
       const response = await api.auth.register({
         username: registerData.username,
         email: registerData.email,
@@ -105,6 +105,9 @@ const handleLogin = async (e) => {
         last_name: registerData.last_name,
         phone: registerData.phone
       })
+
+          console.log('Réponse:', response.data) // 👈 Debug
+
 
       setSuccess('Inscription réussie ! Vous pouvez maintenant vous connecter.')
       
@@ -117,6 +120,10 @@ const handleLogin = async (e) => {
         })
       }, 2000)
     } catch (err) {
+            console.error('Erreur complète:', err)
+  console.error('Status:', err.response?.status) // 👈 Ajoute
+  console.error('Data:', err.response?.data) // 👈 Ajoute
+  console.error('Headers:', err.response?.headers) // 👈 Ajoute
       console.error('Erreur d\'inscription:', err)
       setError(err.response?.data?.detail || err.response?.data?.username?.[0] || 'Erreur lors de l\'inscription')
     } finally {

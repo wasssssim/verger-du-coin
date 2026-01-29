@@ -13,6 +13,7 @@ export default function CartPage() {
   const { isAuthenticated, user } = useAuthStore()
   const { success, error: showError } = useToast()
   const [loading, setLoading] = useState(false)
+  console.log('user : ',user)
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
