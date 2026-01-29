@@ -39,6 +39,8 @@ export default function CartPage() {
       }))
 
       // Créer la vente
+        console.log('👤 User actuel:', user) // 👈 Ajoute ça
+
       const orderData = {
         channel: 'WEB',
         location: 1,
@@ -46,6 +48,8 @@ export default function CartPage() {
         payment_method: 'CARD',
         lines: lines
       }
+        console.log('📦 Order data:', orderData) // 👈 Ajoute ça
+
 
       const response = await api.sales.create(orderData)
 

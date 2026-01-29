@@ -15,8 +15,7 @@ from sfs_sales.models import Sale, SaleLine, DailyReport
 from django.contrib.auth import get_user_model
 
 
-User = get_user_model()  # 👈 Ajoute cette ligne
-
+User = get_user_model()  
 # === PRODUCTS SERIALIZERS ===
 class ProductCategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -286,23 +285,23 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         # Si l'utilisateur a un Customer lié, ajouter les infos
         try:
-            if hasattr(user, 'customer'):
-                customer = user.customer
-                data['customer_id'] = customer.id
-                data['phone'] = customer.phone
-                data['address'] = customer.address_line1
-                data['postal_code'] = customer.postal_code
-                data['city'] = customer.city
-                
-                # Ajouter la carte de fidélité si elle existe
-                if hasattr(customer, 'loyalty_card'):
-                    card = customer.loyalty_card
-                    data['loyalty_card'] = {
-                        'card_number': card.card_number,
-                        'points_balance': float(card.points_balance),
-                        'is_active': card.is_active
-                    }
-        except:
+            customer = Customer.objects.get(email=user.email)  
+            data['customer_id'] = customer.id
+            data['phone'] = customer.phone
+            data['address'] = customer.address_line1
+            data['postal_code'] = customer.postal_code
+            data['city'] = customer.city
+            
+            # Ajouter la carte de fidélité si elle existe
+            if hasattr(customer, 'loyalty_card'):
+                card = customer.loyalty_card
+                data['loyalty_card'] = {
+                    'card_number': card.card_number,
+                    'points_balance': float(card.points_balance),
+                    'is_active': card.is_active
+                }
+        except Customer.DoesNotExist:
+            # Pas de customer avec cet email
             pass
         
         return Response(data)

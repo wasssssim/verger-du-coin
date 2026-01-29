@@ -37,39 +37,26 @@ const handleLogin = async (e) => {
   setLoading(true)
 
   try {
-    // Appel API d'authentification
     const response = await api.auth.login(loginData.username, loginData.password)
-    
     const token = response.data.access
     
-    // Créer un objet user temporaire
-    const tempUser = {
-      username: loginData.username,
-      email: '',
-      is_staff: false,
-      is_superuser: false
-    }
-    
-    // Stocker dans le store AVANT de récupérer les infos
+    const tempUser = { username: loginData.username, email: '' }
     login(tempUser, token)
     
-    // Maintenant récupérer les vraies infos utilisateur
     try {
       const userResponse = await api.customers.getMe()
-      // Mettre à jour avec les vraies infos
+      console.log('✅ User data reçu:', userResponse.data) // 👈 Vérifie ça
       login(userResponse.data, token)
     } catch (userErr) {
-      console.error('Erreur récupération user:', userErr)
-      // Même si ça échoue, on a le token, donc on peut continuer
+      console.error('❌ Erreur getMe:', userErr)
     }
     
     setSuccess('Connexion réussie !')
-    
-    // Redirection
     setTimeout(() => {
       const redirectTo = searchParams.get('from') || '/'
       navigate(redirectTo)
     }, 1000)
+    
   } catch (err) {
     console.error('Erreur de connexion:', err)
     setError(err.response?.data?.detail || 'Identifiants incorrects')
@@ -77,7 +64,6 @@ const handleLogin = async (e) => {
     setLoading(false)
   }
 }
-
   const handleRegister = async (e) => {
     e.preventDefault()
     setError('')
