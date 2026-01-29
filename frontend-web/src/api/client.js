@@ -45,22 +45,30 @@ export const api = {
   },
   
   // Produits
-  products: {
-    getAll: (params) =>
-      apiClient.get('/products/', { params }),
-    getInSeason: () =>
-      apiClient.get('/products/in_season/'),
-    getById: (id) =>
-      apiClient.get(`/products/${id}/`),
-    getByCategory: (categoryId) =>
-      apiClient.get('/products/', { params: { category: categoryId } }),
+products: {
+  getAll: async (params) => {
+    const response = await apiClient.get('/products/', { params })
+    return { data: response.data.results || response.data }  // 👈 Ajoute ça
   },
-  
-  // Catégories
-  categories: {
-    getAll: () =>
-      apiClient.get('/products/categories/'),
+  getInSeason: async () => {
+    const response = await apiClient.get('/products/in_season/')
+    return { data: response.data.results || response.data }  // 👈 Ajoute ça
   },
+  getById: (id) =>
+    apiClient.get(`/products/${id}/`),
+  getByCategory: async (categoryId) => {
+    const response = await apiClient.get('/products/', { params: { category: categoryId } })
+    return { data: response.data.results || response.data }  // 👈 Ajoute ça
+  },
+},
+
+// Catégories
+categories: {
+  getAll: async () => {
+    const response = await apiClient.get('/products/categories/')
+    return { data: response.data.results || response.data }  // 👈 Ajoute ça
+  },
+},
   
   // Stocks
   inventory: {

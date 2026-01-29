@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import useAuthStore from '../stores/authStore'
 
 export default function DashboardPage() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, canAccessDashboard } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState([])
   const [deliveries, setDeliveries] = useState([])
@@ -18,8 +18,10 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && canAccessDashboard()) {
       loadDashboardData()
+    } else if (isAuthenticated) {
+      setLoading(false)
     }
   }, [isAuthenticated])
 
@@ -131,12 +133,44 @@ export default function DashboardPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+        <div className="text-center max-w-md">
+          <div className="bg-yellow-100 p-4 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+            <AlertTriangle className="h-10 w-10 text-yellow-600" />
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Accès restreint</h2>
           <p className="text-gray-600 mb-6">Vous devez être connecté pour accéder au tableau de bord</p>
-          <a href="/compte" className="btn-primary">
+          <a href="/compte?redirect=auth&from=/dashboard" className="btn-primary">
             Se connecter
           </a>
+        </div>
+      </div>
+    )
+  }
+
+  // Vérifier si l'utilisateur a les permissions
+  if (isAuthenticated && !canAccessDashboard()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <div className="bg-red-100 p-4 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+            <AlertTriangle className="h-10 w-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Accès non autorisé</h2>
+          <p className="text-gray-600 mb-2">
+            Le tableau de bord est réservé au personnel autorisé.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Rôles autorisés : Administrateur, Personnel (Staff)
+          </p>
+          <div className="space-y-3">
+            <a href="/" className="btn-primary block">
+              Retour à l'accueil
+            </a>
+            <p className="text-sm text-gray-500">
+              Connecté en tant que : <span className="font-medium">{user?.username}</span>
+              {user?.is_staff ? ' (Staff)' : user?.is_superuser ? ' (Admin)' : ' (Client)'}
+            </p>
+          </div>
         </div>
       </div>
     )

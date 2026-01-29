@@ -3,12 +3,8 @@ from django.urls import path, include
 from rest_framework import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-# Imports directs depuis api_complete
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from api_complete import (
+# Importer depuis sfs_customers/views.py au lieu de api_complete.py
+from sfs_customers.views import (
     ProductViewSet, ProductCategoryViewSet,
     StockViewSet, StockLocationViewSet,
     CustomerViewSet, LoyaltyCardViewSet,

@@ -2,10 +2,11 @@
 from rest_framework import serializers, viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from sfs_products.models import Product, ProductCategory
 from sfs_inventory.models import Stock, StockLocation, StockMovement
@@ -26,7 +27,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'code', 'name', 'category', 'category_name', 'description', 
                   'base_price', 'unit', 'vat_rate', 'is_active', 'is_seasonal', 
-                  'in_season', 'image', 'created_at']
+                  'in_season', 'created_at']
 
 # === INVENTORY SERIALIZERS ===
 class StockLocationSerializer(serializers.ModelSerializer):
@@ -106,13 +107,13 @@ class SaleCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         lines_data = validated_data.pop('lines')
         sale = Sale.objects.create(
-        **validated_data,
-        subtotal=0,
-        vat_amount=0,
-        total=0,
-        is_paid=True,
-        status="COMPLETED"
-    )   
+            **validated_data,
+            subtotal=0,
+            vat_amount=0,
+            total=0,
+            is_paid=True,
+            status="COMPLETED"
+        )   
         subtotal = vat_amount = 0
         for line_data in lines_data:
             product = line_data['product']
@@ -200,11 +201,54 @@ class CustomerViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name', 'last_name', 'email']
+    permission_classes = [AllowAny]
     
     def get_permissions(self):
+        if self.action == 'me':
+            return [IsAuthenticated()]  # 👈 Force authentification pour 'me'
         if self.action == 'create':
             return [AllowAny()]
-        return super().get_permissions()
+        return [AllowAny()]  # 👈 Allo)
+    
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        """Retourne les informations de l'utilisateur connecté"""
+        user = request.user
+        
+        # Retourner les infos du User Django
+        data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name or '',
+            'last_name': user.last_name or '',
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'is_active': user.is_active,
+        }
+        
+        # Si l'utilisateur a un Customer lié, ajouter les infos
+        try:
+            if hasattr(user, 'customer'):
+                customer = user.customer
+                data['customer_id'] = customer.id
+                data['phone'] = customer.phone
+                data['address'] = customer.address_line1
+                data['postal_code'] = customer.postal_code
+                data['city'] = customer.city
+                
+                # Ajouter la carte de fidélité si elle existe
+                if hasattr(customer, 'loyalty_card'):
+                    card = customer.loyalty_card
+                    data['loyalty_card'] = {
+                        'card_number': card.card_number,
+                        'points_balance': float(card.points_balance),
+                        'is_active': card.is_active
+                    }
+        except:
+            pass
+        
+        return Response(data)
     
     @action(detail=True, methods=['post'])
     def anonymize(self, request, pk=None):
@@ -232,8 +276,7 @@ class SaleViewSet(viewsets.ModelViewSet):
     queryset = Sale.objects.all()
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['channel', 'location', 'customer', 'status']
-    permission_classes = [AllowAny]   # 👈 LA LIGNE CLÉ
-
+    permission_classes = [AllowAny]
     
     def get_serializer_class(self):
         if self.action == 'create':
