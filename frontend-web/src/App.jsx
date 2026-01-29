@@ -7,6 +7,7 @@ import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
 import SubscriptionsPage from './pages/SubscriptionsPage'
 import AccountPage from './pages/AccountPage'
+import DashboardPage from './pages/DashboardPage'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -21,6 +22,7 @@ function App() {
           <Route path="/commander" element={<CheckoutPage />} />
           <Route path="/abonnements" element={<SubscriptionsPage />} />
           <Route path="/compte" element={<AccountPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/confirmation/:orderId" element={<OrderConfirmationPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

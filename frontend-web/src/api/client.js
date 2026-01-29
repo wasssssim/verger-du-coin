@@ -46,28 +46,20 @@ export const api = {
   
   // Produits
   products: {
-    getAll: async (params) => {
-      const response = await apiClient.get('/products/', { params })
-      return { data: response.data.results || response.data }
-    },
-    getInSeason: async () => {
-      const response = await apiClient.get('/products/in_season/')
-      return { data: response.data.results || response.data }
-    },
+    getAll: (params) =>
+      apiClient.get('/products/', { params }),
+    getInSeason: () =>
+      apiClient.get('/products/in_season/'),
     getById: (id) =>
       apiClient.get(`/products/${id}/`),
-    getByCategory: async (categoryId) => {
-      const response = await apiClient.get('/products/', { params: { category: categoryId } })
-      return { data: response.data.results || response.data }
-    },
+    getByCategory: (categoryId) =>
+      apiClient.get('/products/', { params: { category: categoryId } }),
   },
   
   // Catégories
   categories: {
-    getAll: async () => {
-      const response = await apiClient.get('/products/categories/')
-      return { data: response.data.results || response.data }
-    },
+    getAll: () =>
+      apiClient.get('/products/categories/'),
   },
   
   // Stocks
@@ -106,19 +98,15 @@ export const api = {
   
   // Abonnements
   subscriptions: {
-    getPlans: async () => {
-      const response = await apiClient.get('/subscriptions/plans/')
-      return { data: response.data.results || response.data }
-    },
+    getPlans: () =>
+      apiClient.get('/subscriptions/plans/'),
     getPlanById: (id) =>
       apiClient.get(`/subscriptions/plans/${id}/`),
     getCurrentBasket: (planId) =>
       apiClient.get(`/subscriptions/plans/${planId}/current_basket/`),
     
-    getMySubscriptions: async () => {
-      const response = await apiClient.get('/subscriptions/my_subscriptions/')
-      return { data: response.data.results || response.data }
-    },
+    getMySubscriptions: () =>
+      apiClient.get('/subscriptions/my_subscriptions/'),
     create: (data) =>
       apiClient.post('/subscriptions/', data),
     getById: (id) =>

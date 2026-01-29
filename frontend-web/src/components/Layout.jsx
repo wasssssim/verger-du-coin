@@ -16,6 +16,7 @@ export default function Layout({ children }) {
     { name: 'Accueil', href: '/' },
     { name: 'Boutique', href: '/boutique' },
     { name: 'Abonnements', href: '/abonnements' },
+    { name: 'Dashboard', href: '/dashboard' },
   ]
   
   const isActive = (path) => location.pathname === path
@@ -137,6 +138,7 @@ export default function Layout({ children }) {
                 <li><Link to="/" className="hover:text-white">Accueil</Link></li>
                 <li><Link to="/boutique" className="hover:text-white">Boutique</Link></li>
                 <li><Link to="/abonnements" className="hover:text-white">Abonnements</Link></li>
+                <li><Link to="/dashboard" className="hover:text-white">Dashboard</Link></li>
               </ul>
             </div>
             
