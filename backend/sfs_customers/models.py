@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 import uuid
 
 class Customer(models.Model):
@@ -71,7 +72,13 @@ class LoyaltyCard(models.Model):
         return f"Carte {self.card_number}"
     
     def add_points(self, amount_spent):
-        points = int(amount_spent * settings.LOYALTY_POINTS_MULTIPLIER)
+    # On s'assure que settings.LOYALTY_POINTS_MULTIPLIER est importé
+        from django.conf import settings
+    
+    # Calcul des points (conversion explicite pour éviter les erreurs de type)
+    # Si amount_spent est 15.50€, points deviendra 15 (car IntegerField)
+        points = int(Decimal(str(amount_spent)) * Decimal(str(settings.LOYALTY_POINTS_MULTIPLIER)))
+    
         self.points_balance += points
         self.total_points_earned += points
         self.save()

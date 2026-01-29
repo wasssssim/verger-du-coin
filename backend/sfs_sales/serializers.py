@@ -105,44 +105,58 @@ class SaleCreateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         lines_data = validated_data.pop('lines')
-        sale = Sale.objects.create(**validated_data)
-        
-        subtotal = vat_amount = 0
+    
+        # FORCE is_paid à True pour les ventes KIOSK
+        sale = Sale.objects.create(is_paid=True, status='COMPLETED', **validated_data)
+    
+        subtotal = 0
+        vat_amount = 0
+
         for line_data in lines_data:
             product = line_data['product']
-            if 'unit_price' not in line_data:
-                line_data['unit_price'] = product.base_price
-            if 'vat_rate' not in line_data:
-                line_data['vat_rate'] = product.vat_rate
-            
-            line = SaleLine.objects.create(sale=sale, **line_data)
+            # On s'assure d'avoir les prix
+            u_price = line_data.get('unit_price', product.base_price)
+            v_rate = line_data.get('vat_rate', product.vat_rate)
+        
+            line = SaleLine.objects.create(
+                sale=sale, 
+                product=product,
+                quantity=line_data['quantity'],
+                unit_price=u_price,
+                vat_rate=v_rate
+            )
             subtotal += line.line_total
             vat_amount += line.vat_amount
-            
-            # Décrémenter stock
-            try:
-                stock = Stock.objects.get(product=product, location=sale.location)
-                StockMovement.objects.create(
-                    stock=stock, movement_type='OUT', quantity=line.quantity,
-                    reference=sale.sale_number, note=f"Vente {sale.channel}"
-                )
-            except Stock.DoesNotExist:
-                pass
-        
+
+        # Mise à jour et sauvegarde réelle des totaux de la vente
         sale.subtotal = subtotal
         sale.vat_amount = vat_amount
         sale.total = subtotal + vat_amount
         sale.save()
-        
-        # Points fidélité
-        if sale.customer and sale.is_paid:
+
+        # === LOGIQUE FIDÉLITÉ (LA RÉPARATION) ===
+        if sale.customer:
             try:
-                sale.customer.loyalty_card.add_points(float(sale.total))
-                sale.customer.last_purchase_date = sale.created_at
+            # 1. Récupérer ou créer la carte
+                loyalty_card, created = LoyaltyCard.objects.get_or_create(
+                    customer=sale.customer,
+                    defaults={'card_number': f"VDC-{sale.customer.internal_id}"}
+                )
+            
+            # 2. Ajouter les points (1€ = 1pt)
+            # On passe le total de la vente à ta méthode add_points
+                points_gagnes = loyalty_card.add_points(sale.total)
+            
+            # 3. Mettre à jour le client
+                sale.customer.last_purchase_date = timezone.now()
                 sale.customer.save()
-            except:
-                pass
-        
+            
+                print(f"SUCCÈS : {points_gagnes} points ajoutés au client {sale.customer.last_name}")
+            
+            except Exception as e:
+                print(f"ERREUR FIDÉLITÉ : {str(e)}")
+            # On ne bloque pas la vente si la fidélité bug, mais on log l'erreur
+            
         return sale
 
 class DailyReportSerializer(serializers.ModelSerializer):
