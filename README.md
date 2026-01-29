@@ -1,6 +1,6 @@
-# 🍎 LE VERGER DU COIN - SYSTÈME COMPLET
+#  LE VERGER DU COIN - SYSTÈME COMPLET
 
-## 🚀 INSTALLATION ULTRA-RAPIDE (15 minutes)
+##  INSTALLATION ULTRA-RAPIDE 
 
 ### BACKEND (API Django)
 
@@ -25,69 +25,13 @@ python manage.py createsuperuser
 python manage.py shell
 ```
 
-```python
-# Dans le shell Python, copier-coller:
-from sfs_products.models import *
-from sfs_inventory.models import *
-from sfs_customers.models import *
-from decimal import Decimal
-import random
 
-# Catégories
-fruits = ProductCategory.objects.create(name="Fruits", display_order=1)
-legumes = ProductCategory.objects.create(name="Légumes", display_order=2)
-
-# Produits
-products_data = [
-    ("POM001", "Pommes Golden", fruits, 3.50),
-    ("POM002", "Pommes Granny", fruits, 3.80),
-    ("POI001", "Poires", fruits, 4.20),
-    ("TOM001", "Tomates", legumes, 5.00),
-    ("CAR001", "Carottes", legumes, 2.50),
-    ("SAL001", "Salade", legumes, 1.80),
-]
-
-for code, name, cat, price in products_data:
-    Product.objects.create(
-        code=code, name=name, category=cat,
-        base_price=Decimal(str(price)), unit="KG", vat_rate=Decimal("5.5")
-    )
-
-# Lieux
-kiosque = StockLocation.objects.create(code="KIOSK", name="Kiosque à la ferme")
-marche = StockLocation.objects.create(code="MARKET", name="Marchés fermiers")
-
-# Stocks
-for product in Product.objects.all():
-    for location in [kiosque, marche]:
-        Stock.objects.create(
-            product=product, location=location,
-            quantity=Decimal("100"), low_stock_threshold=Decimal("10")
-        )
-
-# Client test
-customer = Customer.objects.create(
-    first_name="Jean", last_name="Dupont",
-    email="jean@test.fr", phone="0612345678",
-    marketing_consent=True, newsletter_consent=True
-)
-
-# Carte fidélité
-LoyaltyCard.objects.create(
-    customer=customer,
-    card_number=f"VDC{random.randint(100000,999999)}",
-    points_balance=150
-)
-
-print("✅ Données de test créées!")
-print(f"Carte fidélité: {customer.loyalty_card.card_number}")
-```
 
 ```bash
 # 5. Lancer le serveur
 python manage.py runserver
 
-# ✅ API disponible: http://localhost:8000/api/docs/
+#  API disponible: http://localhost:8000/api/docs/
 ```
 
 ### FRONTEND (POS React)
@@ -101,23 +45,22 @@ npm install
 # 2. Lancer
 npm run dev
 
-# ✅ POS disponible: http://localhost:5173
+#  POS disponible: http://localhost:5173
 ```
 
 ---
 
-## 📱 UTILISATION DU POS
+##  UTILISATION DU POS
 
 ### Connexion
 - URL: http://localhost:5173
 - Username: `admin`
-- Password: `admin123`
+- Password: `admin`
 
 ### Faire une Vente
 1. Cliquer sur les produits pour les ajouter au panier
 2. Optionnel: Scanner/taper le numéro de carte fidélité
 3. Cliquer sur "ESPÈCES" ou "CARTE"
-4. ✅ Vente enregistrée !
 
 ---
 
@@ -128,12 +71,10 @@ npm run dev
 ### Authentification
 ```bash
 POST /auth/token/
-Body: {"username": "admin", "password": "admin123"}
+Body: {"username": "admin", "password": "admin"}
 → {"access": "TOKEN", "refresh": "..."}
 
-# Utiliser ensuite:
-Header: Authorization: Bearer TOKEN
-```
+
 
 ### Produits
 ```bash
@@ -178,7 +119,7 @@ POST /sales/sync/                 # Sync ventes offline
 
 ---
 
-## 📊 ARCHITECTURE
+##  ARCHITECTURE
 
 ```
 Backend (Django)
@@ -194,7 +135,7 @@ Frontend POS (React)
 
 ---
 
-## 🛡️ CONFORMITÉ RGPD
+##  CONFORMITÉ RGPD
 
 ### Consentements
 - Opt-in explicite pour marketing/newsletter
@@ -211,7 +152,7 @@ POST /api/customers/{id}/anonymize/
 
 ---
 
-## 🔥 MODE OFFLINE (POS)
+##  MODE OFFLINE (POS)
 
 Le POS fonctionne hors-ligne :
 1. Ventes stockées localement (IndexedDB)
@@ -220,9 +161,9 @@ Le POS fonctionne hors-ligne :
 
 ---
 
-## 🎯 FONCTIONNALITÉS
+##  FONCTIONNALITÉS
 
-### ✅ Complètes
+###  Complètes
 - Gestion produits (catégories, saisonnalité)
 - Stocks temps réel avec traçabilité
 - Ventes multi-canaux (Kiosque/Marché/Web)
@@ -232,10 +173,9 @@ Le POS fonctionne hors-ligne :
 - RGPD intégré
 - Mode offline
 
-### 🔄 À Développer (Optionnel)
+###  À Développer (Optionnel)
 - Tarification dynamique selon stock
-- Abonnements paniers hebdomadaires
-- Site web Click & Collect
+
 - Statistiques avancées
 - Intégration paiement en ligne
 
@@ -252,86 +192,16 @@ Après l'installation, vous avez :
 
 ---
 
-## 🆘 DÉPANNAGE
 
-### Erreur "Module not found"
-```bash
-cd backend
-pip install -r requirements.txt
-```
 
-### Erreur base de données
-```bash
-rm db.sqlite3
-rm sfs_*/migrations/00*.py
-python manage.py makemigrations
-python manage.py migrate
-```
-
-### Frontend ne démarre pas
-```bash
-cd frontend-pos
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### CORS Error
-Vérifier que le backend tourne sur port 8000 et frontend sur 5173
-
----
-
-## 📞 SUPPORT
-
-**Documentation API:** http://localhost:8000/api/docs/  
-**Admin Django:** http://localhost:8000/admin/
-
----
-
-## 🎓 POUR ALLER PLUS LOIN
-
-### Déploiement Production
-1. Changer `SECRET_KEY` et `DEBUG=False`
-2. Utiliser PostgreSQL au lieu de SQLite
-3. Configurer Nginx + Gunicorn
-4. Activer HTTPS (Let's Encrypt)
-5. Backup automatique S3
-
-### Frontend Web (Click & Collect)
-Copier la structure du POS et adapter pour :
-- Catalogue produits public
-- Panier persistant
-- Formulaire livraison
-- Paiement Stripe
-
-### Formation Équipe
-1. Démonstration POS (30 min)
-2. Test sur données fictives (1h)
-3. Go-live progressif
-
----
-
-## 💰 BUDGET
-
-**Déjà développé** : Backend complet + POS fonctionnel  
-**Estimé** : 12 000€ de développement
-
-**Reste à faire** :
-- Frontend Web : 3 000€
-- Déploiement : 1 000€
-- Formation : 500€
-
-**TOTAL** : ~16 500€
-
----
-
-## ✨ CONCLUSION
+##  CONCLUSION
 
 Vous disposez d'un système professionnel, moderne et évolutif qui répond à tous les besoins du Verger du Coin :
 
-✅ API REST complète  
-✅ POS tactile fonctionnel  
-✅ Mode offline  
-✅ RGPD intégré  
-✅ Documentation complète  
+API REST complète  
+POS tactile fonctionnel  
+Mode offline  
+RGPD intégré  
+Documentation complète  
 
-**C'EST PRÊT À UTILISER ! 🚀**
+**C'EST PRÊT À UTILISER ! **
