@@ -92,17 +92,21 @@ categories: {
       apiClient.post('/customers/search_by_card/', { card_number: cardNumber }),
   },
   
-  // Commandes/Ventes
-  sales: {
-    create: (data) =>
-      apiClient.post('/sales/', data),
-    getMyOrders: async () => {
-      const response = await apiClient.get('/sales/my_orders/')
-      return { data: response.data.results || response.data }
-    },
-    getById: (id) =>
-      apiClient.get(`/sales/${id}/`),
+// Commandes/Ventes
+sales: {
+  create: (data) =>
+    apiClient.post('/sales/', data),
+  getAll: async (params) => {
+    const response = await apiClient.get('/sales/', { params })
+    return { data: response.data.results || response.data }
   },
+  getMyOrders: async () => {
+    const response = await apiClient.get('/sales/my_orders/')
+    return { data: response.data.results || response.data }
+  },
+  getById: (id) =>
+    apiClient.get(`/sales/${id}/`),
+},
   
   // Abonnements
   subscriptions: {

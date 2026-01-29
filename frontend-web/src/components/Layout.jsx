@@ -17,6 +17,8 @@ export default function Layout({ children }) {
     { name: 'Boutique', href: '/boutique' },
     { name: 'Abonnements', href: '/abonnements' },
     { name: 'Dashboard', href: '/dashboard' },
+      { name: 'Notifications', href: '/notifications' },
+
   ]
   
   const isActive = (path) => location.pathname === path

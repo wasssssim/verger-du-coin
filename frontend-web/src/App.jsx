@@ -10,12 +10,21 @@ import AccountPage from './pages/AccountPage'
 import DashboardPage from './pages/DashboardPage'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import NotFoundPage from './pages/NotFoundPage'
+import NotificationsPage from './pages/NotificationsPage'
+import ProtectedRoute from './components/ProtectedRoute'
+
 
 function App() {
   return (
     <>
       <Layout>
         <Routes>
+
+<Route path="/notifications" element={
+  <ProtectedRoute requireStaff={true}>
+    <NotificationsPage />
+  </ProtectedRoute>
+} />
           <Route path="/" element={<HomePage />} />
           <Route path="/boutique" element={<ShopPage />} />
           <Route path="/panier" element={<CartPage />} />
